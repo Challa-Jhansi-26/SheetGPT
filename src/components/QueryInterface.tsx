@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,12 +12,12 @@ interface QueryInterfaceProps {
 }
 
 const suggestedQueries = [
-  "What are the top 5 categories by value?",
-  "Show me the trend over time",
-  "What's the average value per category?",
-  "Find any outliers or anomalies",
-  "What patterns do you see in the data?",
-  "Which month had the highest sales?"
+  "What is the average price?",
+  "What is the maximum horsepower?",
+  "Show me the top 5 highest values",
+  "What is the minimum and maximum of each column?",
+  "How many records are there?",
+  "What are the unique categories?"
 ];
 
 export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
@@ -30,15 +31,15 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
 
     setIsLoading(true);
     
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Generate a mock response based on the query
-    const mockResponse = generateMockResponse(queryText, data);
+    // Generate a data-driven response
+    const dataResponse = generateDataDrivenResponse(queryText, data);
     
     setResponses(prev => [{
       query: queryText,
-      response: mockResponse,
+      response: dataResponse,
       timestamp: new Date()
     }, ...prev]);
     
@@ -47,40 +48,133 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
     
     toast({
       title: "Query processed",
-      description: "AI has analyzed your data and provided insights.",
+      description: "Analysis complete based on your dataset.",
     });
   };
 
-  const generateMockResponse = (query: string, data: any[]) => {
+  const generateDataDrivenResponse = (query: string, dataset: any[]) => {
+    if (!dataset || dataset.length === 0) {
+      return "No data available to analyze. Please upload a dataset first.";
+    }
+
     const lowerQuery = query.toLowerCase();
+    const firstRow = dataset[0];
+    const columns = Object.keys(firstRow);
     
-    if (lowerQuery.includes('top') || lowerQuery.includes('highest')) {
-      // Safely extract numeric values from the first data row
-      const firstRow = data[0] || {};
-      const numericValues = Object.values(firstRow)
-        .filter((value): value is number => typeof value === 'number' && !isNaN(value));
-      const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : 0;
-      
-      return `Based on your data analysis, I found that the top performers show significant variation. The highest values appear in the first few categories, with the top entry being approximately ${maxValue.toFixed(2)} units. This represents a strong performance indicator in your dataset.`;
-    }
-    
-    if (lowerQuery.includes('trend') || lowerQuery.includes('time')) {
-      return `The trend analysis reveals an interesting pattern in your data. There's a general upward trajectory with some seasonal variations. The data shows approximately 15-20% growth over the analyzed period, with some notable peaks during specific intervals.`;
-    }
-    
+    // Get all numeric columns
+    const numericColumns = columns.filter(col => {
+      return dataset.some(row => typeof row[col] === 'number' && !isNaN(row[col]));
+    });
+
+    // Get all numeric values across all columns
+    const allNumericValues = dataset.flatMap(row => 
+      numericColumns.map(col => row[col]).filter(val => typeof val === 'number' && !isNaN(val))
+    );
+
+    // Average queries
     if (lowerQuery.includes('average') || lowerQuery.includes('mean')) {
-      return `The average values across your dataset show consistent performance. Most categories fall within the expected range, with an overall average around ${(Math.random() * 100 + 50).toFixed(2)} units. This indicates stable performance across different segments.`;
+      if (lowerQuery.includes('price') && numericColumns.some(col => col.toLowerCase().includes('price'))) {
+        const priceCol = numericColumns.find(col => col.toLowerCase().includes('price'));
+        const prices = dataset.map(row => row[priceCol]).filter(val => typeof val === 'number' && !isNaN(val));
+        const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
+        return `The average ${priceCol.toLowerCase()} is ${avg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+      }
+      
+      if (allNumericValues.length > 0) {
+        const overall = allNumericValues.reduce((sum, val) => sum + val, 0) / allNumericValues.length;
+        return `The overall average across all numeric columns is ${overall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+      }
     }
-    
-    if (lowerQuery.includes('outlier') || lowerQuery.includes('anomal')) {
-      return `I've detected several interesting outliers in your data. There are 3-4 data points that deviate significantly from the normal pattern, which could indicate either exceptional performance or data quality issues that merit further investigation.`;
+
+    // Maximum queries
+    if (lowerQuery.includes('max') || lowerQuery.includes('highest')) {
+      if (lowerQuery.includes('horsepower') && numericColumns.some(col => col.toLowerCase().includes('horsepower') || col.toLowerCase().includes('hp'))) {
+        const hpCol = numericColumns.find(col => col.toLowerCase().includes('horsepower') || col.toLowerCase().includes('hp'));
+        const maxHp = Math.max(...dataset.map(row => row[hpCol]).filter(val => typeof val === 'number' && !isNaN(val)));
+        return `The maximum horsepower in the dataset is ${maxHp} HP.`;
+      }
+      
+      if (allNumericValues.length > 0) {
+        const maxVal = Math.max(...allNumericValues);
+        return `The highest value in the dataset is ${maxVal.toLocaleString()}.`;
+      }
     }
-    
-    if (lowerQuery.includes('pattern') || lowerQuery.includes('insight')) {
-      return `Several key patterns emerge from your data: 1) There's a clear clustering in the mid-range values, 2) Seasonal variations appear to follow a predictable cycle, and 3) Certain categories consistently outperform others by 25-30%. These patterns suggest systematic factors at play.`;
+
+    // Minimum queries
+    if (lowerQuery.includes('min') || lowerQuery.includes('lowest')) {
+      if (allNumericValues.length > 0) {
+        const minVal = Math.min(...allNumericValues);
+        return `The lowest value in the dataset is ${minVal.toLocaleString()}.`;
+      }
     }
-    
-    return `I've analyzed your query about "${query}" and found relevant insights in your data. The analysis shows meaningful correlations and trends that could help inform your decision-making. The data suggests there are opportunities for optimization in several key areas.`;
+
+    // Count queries
+    if (lowerQuery.includes('how many') || lowerQuery.includes('count') || lowerQuery.includes('records')) {
+      return `The dataset contains ${dataset.length} records with ${columns.length} columns.`;
+    }
+
+    // Top N queries
+    if (lowerQuery.includes('top') && (lowerQuery.includes('5') || lowerQuery.includes('five'))) {
+      if (numericColumns.length > 0) {
+        const mainCol = numericColumns[0];
+        const topItems = dataset
+          .filter(row => typeof row[mainCol] === 'number' && !isNaN(row[mainCol]))
+          .sort((a, b) => b[mainCol] - a[mainCol])
+          .slice(0, 5)
+          .map((row, index) => `${index + 1}. ${row[mainCol]} ${columns.find(col => typeof row[col] === 'string') ? `(${row[columns.find(col => typeof row[col] === 'string')]})` : ''}`)
+          .join('\n');
+        return `Top 5 highest ${mainCol} values:\n${topItems}`;
+      }
+    }
+
+    // Range queries (min/max for each column)
+    if (lowerQuery.includes('range') || (lowerQuery.includes('min') && lowerQuery.includes('max'))) {
+      const ranges = numericColumns.map(col => {
+        const values = dataset.map(row => row[col]).filter(val => typeof val === 'number' && !isNaN(val));
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        return `${col}: ${min.toLocaleString()} - ${max.toLocaleString()}`;
+      }).join('\n');
+      return `Value ranges by column:\n${ranges}`;
+    }
+
+    // Unique categories
+    if (lowerQuery.includes('unique') || lowerQuery.includes('categories') || lowerQuery.includes('distinct')) {
+      const stringColumns = columns.filter(col => 
+        dataset.some(row => typeof row[col] === 'string')
+      );
+      
+      if (stringColumns.length > 0) {
+        const firstStringCol = stringColumns[0];
+        const uniqueValues = [...new Set(dataset.map(row => row[firstStringCol]).filter(val => val !== null && val !== undefined))];
+        return `Found ${uniqueValues.length} unique values in ${firstStringCol}: ${uniqueValues.slice(0, 10).join(', ')}${uniqueValues.length > 10 ? '...' : ''}`;
+      }
+    }
+
+    // Summary statistics
+    if (lowerQuery.includes('summary') || lowerQuery.includes('overview') || lowerQuery.includes('stats')) {
+      const stats = numericColumns.slice(0, 3).map(col => {
+        const values = dataset.map(row => row[col]).filter(val => typeof val === 'number' && !isNaN(val));
+        const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        return `${col}: Avg ${avg.toFixed(2)}, Min ${min}, Max ${max}`;
+      }).join('\n');
+      return `Dataset summary (${dataset.length} records):\n${stats}`;
+    }
+
+    // Fallback with actual data insight
+    if (numericColumns.length > 0) {
+      const mainCol = numericColumns[0];
+      const values = dataset.map(row => row[mainCol]).filter(val => typeof val === 'number' && !isNaN(val));
+      const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      
+      return `Based on your query about "${query}", here's what I found in the ${mainCol} column: Average is ${avg.toFixed(2)}, ranging from ${min} to ${max} across ${dataset.length} records.`;
+    }
+
+    return `I analyzed your query "${query}" but couldn't find specific numeric data to calculate. The dataset has ${dataset.length} records with columns: ${columns.slice(0, 5).join(', ')}${columns.length > 5 ? '...' : ''}.`;
   };
 
   return (
@@ -96,7 +190,7 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
         <CardContent className="space-y-4">
           <div className="flex space-x-2">
             <Input
-              placeholder="Ask me anything about your data... (e.g., 'What are the top performing categories?')"
+              placeholder="Ask me anything about your data... (e.g., 'What is the average price?')"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
@@ -138,7 +232,7 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
         <div className="space-y-4">
           <h3 className="text-lg font-semibold flex items-center space-x-2">
             <TrendingUp className="h-5 w-5" />
-            <span>AI Insights</span>
+            <span>AI Analysis Results</span>
           </h3>
           
           {responses.map((response, index) => (
@@ -153,8 +247,8 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
                   
                   {/* Response */}
                   <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
-                    <p className="font-medium text-green-900">AI Analysis:</p>
-                    <p className="text-green-800">{response.response}</p>
+                    <p className="font-medium text-green-900">Data Analysis:</p>
+                    <pre className="text-green-800 whitespace-pre-wrap font-sans">{response.response}</pre>
                   </div>
                   
                   {/* Timestamp */}
@@ -174,7 +268,7 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
             <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Start Asking Questions</h3>
             <p className="text-gray-600">
-              Use natural language to ask questions about your data. AI will analyze and provide insights.
+              Ask specific questions to get precise data-driven answers from your dataset.
             </p>
           </CardContent>
         </Card>
