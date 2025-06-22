@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,84 +60,171 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
     const firstRow = dataset[0];
     const columns = Object.keys(firstRow);
     
-    // Get all numeric columns
+    // Helper function to find column by name pattern
+    const findColumn = (patterns: string[]) => {
+      return columns.find(col => 
+        patterns.some(pattern => col.toLowerCase().includes(pattern.toLowerCase()))
+      );
+    };
+
+    // Helper function to get numeric values from a column
+    const getNumericValues = (columnName: string) => {
+      return dataset
+        .map(row => row[columnName])
+        .filter(val => typeof val === 'number' && !isNaN(val));
+    };
+
+    // Helper function to get all values from a column
+    const getColumnValues = (columnName: string) => {
+      return dataset
+        .map(row => row[columnName])
+        .filter(val => val !== null && val !== undefined && val !== '');
+    };
+
+    // Helper function to calculate correlation between two numeric columns
+    const calculateCorrelation = (col1Values: number[], col2Values: number[]) => {
+      if (col1Values.length !== col2Values.length || col1Values.length === 0) return 0;
+      
+      const mean1 = col1Values.reduce((sum, val) => sum + val, 0) / col1Values.length;
+      const mean2 = col2Values.reduce((sum, val) => sum + val, 0) / col2Values.length;
+      
+      let numerator = 0;
+      let sum1Sq = 0;
+      let sum2Sq = 0;
+      
+      for (let i = 0; i < col1Values.length; i++) {
+        const diff1 = col1Values[i] - mean1;
+        const diff2 = col2Values[i] - mean2;
+        numerator += diff1 * diff2;
+        sum1Sq += diff1 * diff1;
+        sum2Sq += diff2 * diff2;
+      }
+      
+      const denominator = Math.sqrt(sum1Sq * sum2Sq);
+      return denominator === 0 ? 0 : numerator / denominator;
+    };
+
+    // Get all numeric columns with their values
     const numericColumns = columns.filter(col => {
-      return dataset.some(row => typeof row[col] === 'number' && !isNaN(row[col]));
+      const values = getNumericValues(col);
+      return values.length > 0;
     });
 
-    // Get all numeric values across all columns
-    const allNumericValues = dataset.flatMap(row => 
-      numericColumns.map(col => row[col]).filter(val => typeof val === 'number' && !isNaN(val))
-    );
+    // PRICE QUERIES
+    if (lowerQuery.includes('price') && lowerQuery.includes('average')) {
+      const priceCol = findColumn(['price', 'cost', 'value']);
+      if (priceCol) {
+        const prices = getNumericValues(priceCol);
+        if (prices.length > 0) {
+          const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
+          return `The average ${priceCol} is ${avg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (based on ${prices.length} records).`;
+        }
+      }
+      return "No price column found in the dataset.";
+    }
 
-    // Average queries
+    // GENERAL AVERAGE QUERIES
     if (lowerQuery.includes('average') || lowerQuery.includes('mean')) {
-      if (lowerQuery.includes('price') && numericColumns.some(col => col.toLowerCase().includes('price'))) {
-        const priceCol = numericColumns.find(col => col.toLowerCase().includes('price'));
-        const prices = dataset.map(row => row[priceCol]).filter(val => typeof val === 'number' && !isNaN(val));
-        const avg = prices.reduce((sum, val) => sum + val, 0) / prices.length;
-        return `The average ${priceCol.toLowerCase()} is ${avg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
+      if (numericColumns.length > 0) {
+        const results = numericColumns.slice(0, 3).map(col => {
+          const values = getNumericValues(col);
+          const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+          return `${col}: ${avg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }).join('\n');
+        return `Average values:\n${results}`;
       }
-      
-      if (allNumericValues.length > 0) {
-        const overall = allNumericValues.reduce((sum, val) => sum + val, 0) / allNumericValues.length;
-        return `The overall average across all numeric columns is ${overall.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`;
-      }
+      return "No numeric columns found to calculate averages.";
     }
 
-    // Maximum queries
+    // HORSEPOWER QUERIES
+    if (lowerQuery.includes('horsepower') || lowerQuery.includes('hp')) {
+      const hpCol = findColumn(['horsepower', 'hp', 'power']);
+      if (hpCol) {
+        const hpValues = getNumericValues(hpCol);
+        if (hpValues.length > 0) {
+          if (lowerQuery.includes('max') || lowerQuery.includes('highest')) {
+            const maxHp = Math.max(...hpValues);
+            return `The maximum ${hpCol} is ${maxHp} HP.`;
+          }
+          if (lowerQuery.includes('min') || lowerQuery.includes('lowest')) {
+            const minHp = Math.min(...hpValues);
+            return `The minimum ${hpCol} is ${minHp} HP.`;
+          }
+          if (lowerQuery.includes('average')) {
+            const avgHp = hpValues.reduce((sum, val) => sum + val, 0) / hpValues.length;
+            return `The average ${hpCol} is ${avgHp.toFixed(2)} HP.`;
+          }
+        }
+      }
+      return "No horsepower column found in the dataset.";
+    }
+
+    // MAXIMUM QUERIES
     if (lowerQuery.includes('max') || lowerQuery.includes('highest')) {
-      if (lowerQuery.includes('horsepower') && numericColumns.some(col => col.toLowerCase().includes('horsepower') || col.toLowerCase().includes('hp'))) {
-        const hpCol = numericColumns.find(col => col.toLowerCase().includes('horsepower') || col.toLowerCase().includes('hp'));
-        const maxHp = Math.max(...dataset.map(row => row[hpCol]).filter(val => typeof val === 'number' && !isNaN(val)));
-        return `The maximum horsepower in the dataset is ${maxHp} HP.`;
+      if (numericColumns.length > 0) {
+        const results = numericColumns.slice(0, 3).map(col => {
+          const values = getNumericValues(col);
+          const max = Math.max(...values);
+          return `${col}: ${max.toLocaleString()}`;
+        }).join('\n');
+        return `Maximum values:\n${results}`;
       }
-      
-      if (allNumericValues.length > 0) {
-        const maxVal = Math.max(...allNumericValues);
-        return `The highest value in the dataset is ${maxVal.toLocaleString()}.`;
-      }
+      return "No numeric columns found to find maximum values.";
     }
 
-    // Minimum queries
+    // MINIMUM QUERIES
     if (lowerQuery.includes('min') || lowerQuery.includes('lowest')) {
-      if (allNumericValues.length > 0) {
-        const minVal = Math.min(...allNumericValues);
-        return `The lowest value in the dataset is ${minVal.toLocaleString()}.`;
+      if (numericColumns.length > 0) {
+        const results = numericColumns.slice(0, 3).map(col => {
+          const values = getNumericValues(col);
+          const min = Math.min(...values);
+          return `${col}: ${min.toLocaleString()}`;
+        }).join('\n');
+        return `Minimum values:\n${results}`;
       }
+      return "No numeric columns found to find minimum values.";
     }
 
-    // Count queries
+    // COUNT QUERIES
     if (lowerQuery.includes('how many') || lowerQuery.includes('count') || lowerQuery.includes('records')) {
-      return `The dataset contains ${dataset.length} records with ${columns.length} columns.`;
+      return `The dataset contains ${dataset.length} records with ${columns.length} columns: ${columns.join(', ')}.`;
     }
 
-    // Top N queries
+    // TOP N QUERIES
     if (lowerQuery.includes('top') && (lowerQuery.includes('5') || lowerQuery.includes('five'))) {
       if (numericColumns.length > 0) {
         const mainCol = numericColumns[0];
-        const topItems = dataset
+        const nameCol = columns.find(col => typeof firstRow[col] === 'string') || columns[0];
+        
+        const sortedData = dataset
           .filter(row => typeof row[mainCol] === 'number' && !isNaN(row[mainCol]))
           .sort((a, b) => b[mainCol] - a[mainCol])
-          .slice(0, 5)
-          .map((row, index) => `${index + 1}. ${row[mainCol]} ${columns.find(col => typeof row[col] === 'string') ? `(${row[columns.find(col => typeof row[col] === 'string')]})` : ''}`)
-          .join('\n');
+          .slice(0, 5);
+        
+        const topItems = sortedData.map((row, index) => 
+          `${index + 1}. ${row[mainCol].toLocaleString()} ${nameCol !== mainCol ? `(${row[nameCol]})` : ''}`
+        ).join('\n');
+        
         return `Top 5 highest ${mainCol} values:\n${topItems}`;
       }
+      return "No numeric data available for ranking.";
     }
 
-    // Range queries (min/max for each column)
+    // RANGE QUERIES
     if (lowerQuery.includes('range') || (lowerQuery.includes('min') && lowerQuery.includes('max'))) {
-      const ranges = numericColumns.map(col => {
-        const values = dataset.map(row => row[col]).filter(val => typeof val === 'number' && !isNaN(val));
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        return `${col}: ${min.toLocaleString()} - ${max.toLocaleString()}`;
-      }).join('\n');
-      return `Value ranges by column:\n${ranges}`;
+      if (numericColumns.length > 0) {
+        const ranges = numericColumns.map(col => {
+          const values = getNumericValues(col);
+          const min = Math.min(...values);
+          const max = Math.max(...values);
+          return `${col}: ${min.toLocaleString()} - ${max.toLocaleString()}`;
+        }).join('\n');
+        return `Value ranges by column:\n${ranges}`;
+      }
+      return "No numeric columns found to calculate ranges.";
     }
 
-    // Unique categories
+    // UNIQUE/CATEGORY QUERIES
     if (lowerQuery.includes('unique') || lowerQuery.includes('categories') || lowerQuery.includes('distinct')) {
       const stringColumns = columns.filter(col => 
         dataset.some(row => typeof row[col] === 'string')
@@ -146,15 +232,68 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
       
       if (stringColumns.length > 0) {
         const firstStringCol = stringColumns[0];
-        const uniqueValues = [...new Set(dataset.map(row => row[firstStringCol]).filter(val => val !== null && val !== undefined))];
-        return `Found ${uniqueValues.length} unique values in ${firstStringCol}: ${uniqueValues.slice(0, 10).join(', ')}${uniqueValues.length > 10 ? '...' : ''}`;
+        const allValues = getColumnValues(firstStringCol);
+        const uniqueValues = [...new Set(allValues)];
+        return `${firstStringCol} has ${uniqueValues.length} unique values: ${uniqueValues.slice(0, 10).join(', ')}${uniqueValues.length > 10 ? '...' : ''}`;
       }
+      return "No categorical columns found in the dataset.";
     }
 
-    // Summary statistics
+    // MOST COMMON QUERIES
+    if (lowerQuery.includes('most common') || lowerQuery.includes('most frequent')) {
+      const stringColumns = columns.filter(col => 
+        dataset.some(row => typeof row[col] === 'string')
+      );
+      
+      if (stringColumns.length > 0) {
+        const targetCol = stringColumns.find(col => 
+          lowerQuery.includes(col.toLowerCase())
+        ) || stringColumns[0];
+        
+        const values = getColumnValues(targetCol);
+        const frequency = values.reduce((acc, val) => {
+          acc[val] = (acc[val] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        const mostCommon = Object.entries(frequency)
+          .sort(([,a], [,b]) => b - a)[0];
+        
+        if (mostCommon) {
+          return `The most common ${targetCol} is "${mostCommon[0]}" with ${mostCommon[1]} occurrences (${((mostCommon[1] / values.length) * 100).toFixed(1)}% of records).`;
+        }
+      }
+      return "No categorical data found to determine frequency.";
+    }
+
+    // CORRELATION QUERIES
+    if (lowerQuery.includes('correlation') || lowerQuery.includes('relationship')) {
+      if (numericColumns.length >= 2) {
+        const col1 = numericColumns[0];
+        const col2 = numericColumns[1];
+        const values1 = getNumericValues(col1);
+        const values2 = getNumericValues(col2);
+        
+        // Ensure we have the same number of values for correlation
+        const minLength = Math.min(values1.length, values2.length);
+        const correlation = calculateCorrelation(
+          values1.slice(0, minLength), 
+          values2.slice(0, minLength)
+        );
+        
+        const strength = Math.abs(correlation) > 0.7 ? 'strong' : 
+                        Math.abs(correlation) > 0.3 ? 'moderate' : 'weak';
+        const direction = correlation > 0 ? 'positive' : 'negative';
+        
+        return `The correlation between ${col1} and ${col2} is ${correlation.toFixed(3)}, indicating a ${strength} ${direction} relationship.`;
+      }
+      return "Need at least 2 numeric columns to calculate correlation.";
+    }
+
+    // SUMMARY STATISTICS
     if (lowerQuery.includes('summary') || lowerQuery.includes('overview') || lowerQuery.includes('stats')) {
       const stats = numericColumns.slice(0, 3).map(col => {
-        const values = dataset.map(row => row[col]).filter(val => typeof val === 'number' && !isNaN(val));
+        const values = getNumericValues(col);
         const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
         const min = Math.min(...values);
         const max = Math.max(...values);
@@ -163,18 +302,18 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
       return `Dataset summary (${dataset.length} records):\n${stats}`;
     }
 
-    // Fallback with actual data insight
+    // FALLBACK - Try to provide useful information
     if (numericColumns.length > 0) {
       const mainCol = numericColumns[0];
-      const values = dataset.map(row => row[mainCol]).filter(val => typeof val === 'number' && !isNaN(val));
+      const values = getNumericValues(mainCol);
       const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
       const max = Math.max(...values);
       const min = Math.min(...values);
       
-      return `Based on your query about "${query}", here's what I found in the ${mainCol} column: Average is ${avg.toFixed(2)}, ranging from ${min} to ${max} across ${dataset.length} records.`;
+      return `For "${query}", I analyzed the ${mainCol} column: Average is ${avg.toFixed(2)}, ranging from ${min.toLocaleString()} to ${max.toLocaleString()} across ${dataset.length} records.`;
     }
 
-    return `I analyzed your query "${query}" but couldn't find specific numeric data to calculate. The dataset has ${dataset.length} records with columns: ${columns.slice(0, 5).join(', ')}${columns.length > 5 ? '...' : ''}.`;
+    return `I found ${dataset.length} records with columns: ${columns.join(', ')}. Try asking about specific columns or calculations like "average price" or "maximum horsepower".`;
   };
 
   return (
