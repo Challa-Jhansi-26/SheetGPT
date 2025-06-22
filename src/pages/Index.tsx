@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Upload, FileSpreadsheet, MessageSquare, TrendingUp, Download, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { FileUpload } from '@/components/FileUpload';
 import { Dashboard } from '@/components/Dashboard';
 import { QueryInterface } from '@/components/QueryInterface';
 import { DataPreview } from '@/components/DataPreview';
+import { DataSummary } from '@/components/DataSummary';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -167,13 +167,18 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="summary" className="space-y-8">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="query">AI Query</TabsTrigger>
             <TabsTrigger value="data">Data Preview</TabsTrigger>
             <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="summary" className="space-y-8">
+            <DataSummary data={uploadedData} />
+          </TabsContent>
 
           <TabsContent value="dashboard" className="space-y-8">
             <Dashboard data={uploadedData} />
