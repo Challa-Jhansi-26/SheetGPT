@@ -67,11 +67,16 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
       );
     };
 
-    // Helper function to get numeric values from a column
+    // Helper function to get numeric values from a column with proper type checking
     const getNumericValues = (columnName: string) => {
       return dataset
-        .map(row => row[columnName])
-        .filter(val => typeof val === 'number' && !isNaN(val));
+        .map(row => {
+          const val = row[columnName];
+          // Convert to number and check if it's valid
+          const numVal = typeof val === 'number' ? val : parseFloat(val);
+          return isNaN(numVal) ? null : numVal;
+        })
+        .filter((val): val is number => val !== null);
     };
 
     // Helper function to get all values from a column
@@ -81,20 +86,31 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
         .filter(val => val !== null && val !== undefined && val !== '');
     };
 
-    // Helper function to calculate correlation between two numeric columns
+    // Helper function to calculate correlation between two numeric columns with proper type safety
     const calculateCorrelation = (col1Values: number[], col2Values: number[]) => {
       if (col1Values.length !== col2Values.length || col1Values.length === 0) return 0;
       
-      const mean1 = col1Values.reduce((sum, val) => sum + val, 0) / col1Values.length;
-      const mean2 = col2Values.reduce((sum, val) => sum + val, 0) / col2Values.length;
+      // Ensure we only work with valid numbers
+      const validPairs = col1Values
+        .map((val1, i) => ({ val1, val2: col2Values[i] }))
+        .filter(pair => typeof pair.val1 === 'number' && typeof pair.val2 === 'number' && 
+                       !isNaN(pair.val1) && !isNaN(pair.val2));
+      
+      if (validPairs.length === 0) return 0;
+      
+      const values1 = validPairs.map(p => p.val1);
+      const values2 = validPairs.map(p => p.val2);
+      
+      const mean1 = values1.reduce((sum, val) => sum + val, 0) / values1.length;
+      const mean2 = values2.reduce((sum, val) => sum + val, 0) / values2.length;
       
       let numerator = 0;
       let sum1Sq = 0;
       let sum2Sq = 0;
       
-      for (let i = 0; i < col1Values.length; i++) {
-        const diff1 = col1Values[i] - mean1;
-        const diff2 = col2Values[i] - mean2;
+      for (let i = 0; i < values1.length; i++) {
+        const diff1 = values1[i] - mean1;
+        const diff2 = values2[i] - mean2;
         numerator += diff1 * diff2;
         sum1Sq += diff1 * diff1;
         sum2Sq += diff2 * diff2;
@@ -197,13 +213,21 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
         const nameCol = columns.find(col => typeof firstRow[col] === 'string') || columns[0];
         
         const sortedData = dataset
-          .filter(row => typeof row[mainCol] === 'number' && !isNaN(row[mainCol]))
-          .sort((a, b) => b[mainCol] - a[mainCol])
+          .filter(row => {
+            const val = getNumericValues(mainCol).includes(row[mainCol]);
+            return val;
+          })
+          .sort((a, b) => {
+            const aVal = typeof a[mainCol] === 'number' ? a[mainCol] : parseFloat(a[mainCol]);
+            const bVal = typeof b[mainCol] === 'number' ? b[mainCol] : parseFloat(b[mainCol]);
+            return bVal - aVal;
+          })
           .slice(0, 5);
         
-        const topItems = sortedData.map((row, index) => 
-          `${index + 1}. ${row[mainCol].toLocaleString()} ${nameCol !== mainCol ? `(${row[nameCol]})` : ''}`
-        ).join('\n');
+        const topItems = sortedData.map((row, index) => {
+          const val = typeof row[mainCol] === 'number' ? row[mainCol] : parseFloat(row[mainCol]);
+          return `${index + 1}. ${val.toLocaleString()} ${nameCol !== mainCol ? `(${row[nameCol]})` : ''}`;
+        }).join('\n');
         
         return `Top 5 highest ${mainCol} values:\n${topItems}`;
       }
