@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -90,27 +91,34 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
     const calculateCorrelation = (col1Values: number[], col2Values: number[]) => {
       if (col1Values.length !== col2Values.length || col1Values.length === 0) return 0;
       
-      // Ensure we only work with valid numbers
-      const validPairs = col1Values
-        .map((val1, i) => ({ val1, val2: col2Values[i] }))
-        .filter(pair => typeof pair.val1 === 'number' && typeof pair.val2 === 'number' && 
-                       !isNaN(pair.val1) && !isNaN(pair.val2));
+      // Ensure we only work with valid numbers and same length arrays
+      const minLength = Math.min(col1Values.length, col2Values.length);
+      const validPairs: Array<{val1: number, val2: number}> = [];
+      
+      for (let i = 0; i < minLength; i++) {
+        const val1 = col1Values[i];
+        const val2 = col2Values[i];
+        if (typeof val1 === 'number' && typeof val2 === 'number' && 
+            !isNaN(val1) && !isNaN(val2)) {
+          validPairs.push({ val1, val2 });
+        }
+      }
       
       if (validPairs.length === 0) return 0;
       
       const values1 = validPairs.map(p => p.val1);
       const values2 = validPairs.map(p => p.val2);
       
-      const mean1 = values1.reduce((sum, val) => sum + val, 0) / values1.length;
-      const mean2 = values2.reduce((sum, val) => sum + val, 0) / values2.length;
+      const mean1 = values1.reduce((sum: number, val: number) => sum + val, 0) / values1.length;
+      const mean2 = values2.reduce((sum: number, val: number) => sum + val, 0) / values2.length;
       
       let numerator = 0;
       let sum1Sq = 0;
       let sum2Sq = 0;
       
       for (let i = 0; i < values1.length; i++) {
-        const diff1 = values1[i] - mean1;
-        const diff2 = values2[i] - mean2;
+        const diff1: number = values1[i] - mean1;
+        const diff2: number = values2[i] - mean2;
         numerator += diff1 * diff2;
         sum1Sq += diff1 * diff1;
         sum2Sq += diff2 * diff2;
