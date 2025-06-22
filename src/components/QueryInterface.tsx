@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,7 +55,13 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
     const lowerQuery = query.toLowerCase();
     
     if (lowerQuery.includes('top') || lowerQuery.includes('highest')) {
-      return `Based on your data analysis, I found that the top performers show significant variation. The highest values appear in the first few categories, with the top entry being approximately ${Math.max(...Object.values(data[0] || {})).toFixed(2)} units. This represents a strong performance indicator in your dataset.`;
+      // Safely extract numeric values from the first data row
+      const firstRow = data[0] || {};
+      const numericValues = Object.values(firstRow)
+        .filter((value): value is number => typeof value === 'number' && !isNaN(value));
+      const maxValue = numericValues.length > 0 ? Math.max(...numericValues) : 0;
+      
+      return `Based on your data analysis, I found that the top performers show significant variation. The highest values appear in the first few categories, with the top entry being approximately ${maxValue.toFixed(2)} units. This represents a strong performance indicator in your dataset.`;
     }
     
     if (lowerQuery.includes('trend') || lowerQuery.includes('time')) {
