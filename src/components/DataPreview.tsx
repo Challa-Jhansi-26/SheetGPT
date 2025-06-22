@@ -5,10 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Search, Filter, Download } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronLeft, ChevronRight, Search, Filter, Download, X } from 'lucide-react';
 
 interface DataPreviewProps {
   data: any[];
+}
+
+interface FilterCondition {
+  column: string;
+  operator: string;
+  value: string;
 }
 
 export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
@@ -16,6 +23,13 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
+  const [filters, setFilters] = useState<FilterCondition[]>([]);
+  const [newFilter, setNewFilter] = useState<FilterCondition>({
+    column: '',
+    operator: 'equals',
+    value: ''
+  });
   const rowsPerPage = 10;
 
   const columns = useMemo(() => {
@@ -35,6 +49,33 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
           String(value).toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
+    }
+    
+    // Apply custom filters
+    if (filters.length > 0) {
+      filtered = filtered.filter(row => {
+        return filters.every(filter => {
+          const cellValue = String(row[filter.column] || '').toLowerCase();
+          const filterValue = filter.value.toLowerCase();
+          
+          switch (filter.operator) {
+            case 'equals':
+              return cellValue === filterValue;
+            case 'contains':
+              return cellValue.includes(filterValue);
+            case 'starts_with':
+              return cellValue.startsWith(filterValue);
+            case 'ends_with':
+              return cellValue.endsWith(filterValue);
+            case 'greater_than':
+              return parseFloat(cellValue) > parseFloat(filterValue);
+            case 'less_than':
+              return parseFloat(cellValue) < parseFloat(filterValue);
+            default:
+              return true;
+          }
+        });
+      });
     }
     
     // Apply sorting
@@ -64,7 +105,7 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
     }
     
     return filtered;
-  }, [data, searchTerm, sortColumn, sortDirection]);
+  }, [data, searchTerm, sortColumn, sortDirection, filters]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -96,6 +137,18 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
     }
     
     return 'text';
+  };
+
+  const addFilter = () => {
+    if (newFilter.column && newFilter.value) {
+      setFilters([...filters, newFilter]);
+      setNewFilter({ column: '', operator: 'equals', value: '' });
+      setShowFilterDialog(false);
+    }
+  };
+
+  const removeFilter = (index: number) => {
+    setFilters(filters.filter((_, i) => i !== index));
   };
 
   if (!data || data.length === 0) {
@@ -169,7 +222,11 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
                   className="pl-10 w-64"
                 />
               </div>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilterDialog(!showFilterDialog)}
+              >
                 <Filter className="h-4 w-4 mr-2" />
                 Filter
               </Button>
@@ -179,6 +236,67 @@ export const DataPreview: React.FC<DataPreviewProps> = ({ data }) => {
               </Button>
             </div>
           </div>
+
+          {/* Filter Dialog */}
+          {showFilterDialog && (
+            <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Column</label>
+                  <Select value={newFilter.column} onValueChange={(value) => setNewFilter({...newFilter, column: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select column" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columns.map(column => (
+                        <SelectItem key={column} value={column}>{column}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Operator</label>
+                  <Select value={newFilter.operator} onValueChange={(value) => setNewFilter({...newFilter, operator: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="equals">Equals</SelectItem>
+                      <SelectItem value="contains">Contains</SelectItem>
+                      <SelectItem value="starts_with">Starts with</SelectItem>
+                      <SelectItem value="ends_with">Ends with</SelectItem>
+                      <SelectItem value="greater_than">Greater than</SelectItem>
+                      <SelectItem value="less_than">Less than</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Value</label>
+                  <Input
+                    value={newFilter.value}
+                    onChange={(e) => setNewFilter({...newFilter, value: e.target.value})}
+                    placeholder="Filter value"
+                  />
+                </div>
+                <Button onClick={addFilter}>Add Filter</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Active Filters */}
+          {filters.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {filters.map((filter, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-2">
+                  {filter.column} {filter.operator} "{filter.value}"
+                  <X 
+                    className="h-3 w-3 cursor-pointer" 
+                    onClick={() => removeFilter(index)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
