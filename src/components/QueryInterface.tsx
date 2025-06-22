@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -108,24 +109,26 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
       const values1: number[] = validPairs.map(p => p.val1);
       const values2: number[] = validPairs.map(p => p.val2);
       
-      const mean1: number = values1.reduce((sum: number, val: number) => sum + val, 0) / values1.length;
-      const mean2: number = values2.reduce((sum: number, val: number) => sum + val, 0) / values2.length;
+      const sum1: number = values1.reduce((sum: number, val: number) => sum + val, 0);
+      const sum2: number = values2.reduce((sum: number, val: number) => sum + val, 0);
+      const mean1: number = sum1 / values1.length;
+      const mean2: number = sum2 / values2.length;
       
-      let numerator = 0;
-      let sum1Sq = 0;
-      let sum2Sq = 0;
+      let numerator: number = 0;
+      let sum1Sq: number = 0;
+      let sum2Sq: number = 0;
       
       for (let i = 0; i < values1.length; i++) {
-        const val1: number = values1[i];
-        const val2: number = values2[i];
-        const diff1: number = val1 - mean1;
-        const diff2: number = val2 - mean2;
-        numerator += diff1 * diff2;
-        sum1Sq += diff1 * diff1;
-        sum2Sq += diff2 * diff2;
+        const currentVal1: number = values1[i];
+        const currentVal2: number = values2[i];
+        const diff1: number = currentVal1 - mean1;
+        const diff2: number = currentVal2 - mean2;
+        numerator = numerator + (diff1 * diff2);
+        sum1Sq = sum1Sq + (diff1 * diff1);
+        sum2Sq = sum2Sq + (diff2 * diff2);
       }
       
-      const denominator = Math.sqrt(sum1Sq * sum2Sq);
+      const denominator: number = Math.sqrt(sum1Sq * sum2Sq);
       return denominator === 0 ? 0 : numerator / denominator;
     };
 
