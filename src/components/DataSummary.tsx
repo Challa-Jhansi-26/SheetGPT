@@ -14,10 +14,15 @@ interface ColumnStats {
   min?: number;
   max?: number;
   mean?: number;
+  median?: number;
   uniqueValues: number;
   nullCount: number;
   mostCommon?: string | number;
   sampleValues: any[];
+  extremeValues?: {
+    minRecord?: any;
+    maxRecord?: any;
+  };
 }
 
 export const DataSummary: React.FC<DataSummaryProps> = ({ data }) => {
@@ -38,6 +43,25 @@ export const DataSummary: React.FC<DataSummaryProps> = ({ data }) => {
       const mostCommon = Array.from(valueFrequency.entries())
         .sort((a, b) => b[1] - a[1])[0]?.[0];
 
+      // Find records with extreme values for context
+      let extremeValues = undefined;
+      if (numericValues.length > 0) {
+        const min = Math.min(...numericValues);
+        const max = Math.max(...numericValues);
+        const minRecord = data.find(row => parseFloat(row[col]) === min);
+        const maxRecord = data.find(row => parseFloat(row[col]) === max);
+        extremeValues = { minRecord, maxRecord };
+      }
+
+      // Calculate median for better distribution understanding
+      let median = undefined;
+      if (numericValues.length > 0) {
+        const sorted = [...numericValues].sort((a, b) => a - b);
+        median = sorted.length % 2 === 0 
+          ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+          : sorted[Math.floor(sorted.length / 2)];
+      }
+
       return {
         name: col,
         type: numericValues.length > values.length * 0.7 ? 'numeric' : 
@@ -45,10 +69,12 @@ export const DataSummary: React.FC<DataSummaryProps> = ({ data }) => {
         min: numericValues.length > 0 ? Math.min(...numericValues) : undefined,
         max: numericValues.length > 0 ? Math.max(...numericValues) : undefined,
         mean: numericValues.length > 0 ? numericValues.reduce((a, b) => a + b, 0) / numericValues.length : undefined,
+        median,
         uniqueValues: uniqueValues.size,
         nullCount: data.length - values.length,
         mostCommon,
-        sampleValues: Array.from(uniqueValues).slice(0, 5)
+        sampleValues: Array.from(uniqueValues).slice(0, 5),
+        extremeValues
       };
     });
 
@@ -66,111 +92,205 @@ export const DataSummary: React.FC<DataSummaryProps> = ({ data }) => {
 
     const { totalRows, totalColumns, columnStats, numericColumns, textColumns } = analysis;
     
-    let narrative = `Your dataset tells an interesting story with ${totalRows.toLocaleString()} records across ${totalColumns} different dimensions. `;
+    let narrative = `Diving into this dataset of ${totalRows.toLocaleString()} records, we uncover a fascinating story across ${totalColumns} different dimensions. `;
 
-    // Analyze numeric patterns
-    if (numericColumns.length > 0) {
-      const highestCol = numericColumns.reduce((max, col) => 
-        (col.max || 0) > (max.max || 0) ? col : max
-      );
-      const lowestCol = numericColumns.reduce((min, col) => 
-        (col.min || Infinity) < (min.min || Infinity) ? col : min
-      );
+    // Enhanced numeric analysis with specific comparisons
+    if (numericColumns.length >= 2) {
+      const sortedByRange = numericColumns
+        .filter(col => col.min != null && col.max != null)
+        .sort((a, b) => ((b.max! - b.min!) - (a.max! - a.min!)));
+      
+      const sortedByMean = numericColumns
+        .filter(col => col.mean != null)
+        .sort((a, b) => (b.mean || 0) - (a.mean || 0));
 
-      narrative += `Looking at the numbers, ${highestCol.name} shows the most dramatic range, reaching as high as ${highestCol.max?.toLocaleString()} while ${lowestCol.name} starts from a modest ${lowestCol.min?.toLocaleString()}. `;
-
-      // Compare averages
-      if (numericColumns.length > 1) {
-        const sortedByMean = numericColumns
-          .filter(col => col.mean != null)
-          .sort((a, b) => (b.mean || 0) - (a.mean || 0));
+      if (sortedByRange.length >= 2) {
+        const mostVariable = sortedByRange[0];
+        const leastVariable = sortedByRange[sortedByRange.length - 1];
         
-        if (sortedByMean.length >= 2) {
-          narrative += `On average, ${sortedByMean[0].name} tends to be significantly higher (averaging ${sortedByMean[0].mean?.toFixed(1)}) compared to ${sortedByMean[sortedByMean.length - 1].name} which averages around ${sortedByMean[sortedByMean.length - 1].mean?.toFixed(1)}. `;
+        narrative += `The data reveals striking contrasts: while ${mostVariable.name} shows dramatic variation ranging from ${mostVariable.min?.toLocaleString()} to ${mostVariable.max?.toLocaleString()}, ${leastVariable.name} remains relatively stable between ${leastVariable.min?.toLocaleString()} and ${leastVariable.max?.toLocaleString()}. `;
+      }
+
+      // Detailed extreme value analysis with context
+      if (sortedByMean.length >= 2) {
+        const highest = sortedByMean[0];
+        const lowest = sortedByMean[sortedByMean.length - 1];
+        
+        // Try to find contextual information about extremes
+        let extremeContext = "";
+        if (highest.extremeValues?.maxRecord && textColumns.length > 0) {
+          const contextCol = textColumns[0].name;
+          const maxContext = highest.extremeValues.maxRecord[contextCol];
+          if (maxContext) {
+            extremeContext += `The peak ${highest.name} of ${highest.max?.toLocaleString()} belongs to ${maxContext}, `;
+          }
+        }
+        
+        if (lowest.extremeValues?.minRecord && textColumns.length > 0) {
+          const contextCol = textColumns[0].name;
+          const minContext = lowest.extremeValues.minRecord[contextCol];
+          if (minContext) {
+            extremeContext += `while the lowest ${lowest.name} of ${lowest.min?.toLocaleString()} is found in ${minContext}. `;
+          }
+        }
+
+        narrative += extremeContext || `The highest values cluster around ${highest.name} (averaging ${highest.mean?.toFixed(1)}), significantly outpacing ${lowest.name} which averages just ${lowest.mean?.toFixed(1)}. `;
+      }
+
+      // Distribution insights
+      const col = numericColumns[0];
+      if (col.mean != null && col.median != null) {
+        const skewness = col.mean - col.median;
+        if (Math.abs(skewness) > col.mean * 0.1) {
+          const direction = skewness > 0 ? "higher" : "lower";
+          narrative += `Interestingly, ${col.name} shows an asymmetric distribution with most values clustered ${direction} than the average, suggesting ${skewness > 0 ? "a few exceptionally high outliers pull the average up" : "some notably low values drag the average down"}. `;
         }
       }
     }
 
-    // Analyze categorical data
+    // Enhanced categorical analysis with comparisons
     if (textColumns.length > 0) {
-      const diverseCol = textColumns.reduce((max, col) => 
+      const mostDiverse = textColumns.reduce((max, col) => 
         col.uniqueValues > max.uniqueValues ? col : max
       );
-      const concentratedCol = textColumns.reduce((min, col) => 
+      const mostConcentrated = textColumns.reduce((min, col) => 
         col.uniqueValues < min.uniqueValues ? col : min
       );
 
-      if (diverseCol.uniqueValues > 10) {
-        narrative += `The data shows remarkable diversity in ${diverseCol.name}, with ${diverseCol.uniqueValues} distinct values, suggesting a rich variety of categories. `;
+      if (mostDiverse.uniqueValues > 10) {
+        narrative += `The dataset showcases remarkable diversity in ${mostDiverse.name}, with ${mostDiverse.uniqueValues} distinct categories creating a rich tapestry of variation. `;
       }
 
-      if (concentratedCol.uniqueValues < 10 && concentratedCol.mostCommon) {
-        narrative += `In contrast, ${concentratedCol.name} shows more concentration, with "${concentratedCol.mostCommon}" being the most frequent category. `;
+      if (mostConcentrated.uniqueValues <= 10 && mostConcentrated.mostCommon) {
+        const dominancePercent = Math.round(((data.filter(row => row[mostConcentrated.name] === mostConcentrated.mostCommon).length) / totalRows) * 100);
+        narrative += `In stark contrast, ${mostConcentrated.name} shows clear patterns of concentration, with "${mostConcentrated.mostCommon}" dominating ${dominancePercent}% of all records. `;
+      }
+
+      // Cross-category comparisons if we have both numeric and text data
+      if (numericColumns.length > 0 && textColumns.length > 0) {
+        const numCol = numericColumns[0];
+        const textCol = textColumns[0];
+        
+        // Group by category and compare averages
+        const categoryGroups = new Map();
+        data.forEach(row => {
+          const category = row[textCol.name];
+          const value = parseFloat(row[numCol.name]);
+          if (!isNaN(value) && category) {
+            if (!categoryGroups.has(category)) {
+              categoryGroups.set(category, []);
+            }
+            categoryGroups.get(category).push(value);
+          }
+        });
+
+        if (categoryGroups.size >= 2) {
+          const categoryAverages = Array.from(categoryGroups.entries())
+            .map(([category, values]) => ({
+              category,
+              average: values.reduce((a, b) => a + b, 0) / values.length,
+              count: values.length
+            }))
+            .sort((a, b) => b.average - a.average);
+
+          if (categoryAverages.length >= 2) {
+            const top = categoryAverages[0];
+            const bottom = categoryAverages[categoryAverages.length - 1];
+            const ratio = top.average / bottom.average;
+            
+            narrative += `Examining ${numCol.name} across different ${textCol.name} categories reveals compelling disparities: ${top.category} leads with an average of ${top.average.toFixed(1)}, while ${bottom.category} trails at ${bottom.average.toFixed(1)}—a ${ratio.toFixed(1)}x difference that suggests significant categorical influence. `;
+          }
+        }
       }
     }
 
-    // Data quality insights
+    // Data quality insights with storytelling
     const columnsWithMissing = columnStats.filter(col => col.nullCount > 0);
     if (columnsWithMissing.length > 0) {
-      const worstMissing = columnsWithMissing.reduce((max, col) => 
-        col.nullCount > max.nullCount ? col : max
-      );
-      const missingPercent = ((worstMissing.nullCount / totalRows) * 100).toFixed(1);
+      const totalMissing = columnsWithMissing.reduce((sum, col) => sum + col.nullCount, 0);
+      const missingPercent = ((totalMissing / (totalRows * totalColumns)) * 100).toFixed(1);
       
-      narrative += `Data completeness varies across fields, with ${worstMissing.name} having about ${missingPercent}% missing values, which might indicate selective reporting or optional fields. `;
+      if (parseFloat(missingPercent) > 5) {
+        const worstField = columnsWithMissing.reduce((max, col) => 
+          col.nullCount > max.nullCount ? col : max
+        );
+        narrative += `The data's completeness tells its own story: while most information is well-documented, ${worstField.name} stands out with ${((worstField.nullCount / totalRows) * 100).toFixed(1)}% missing entries, possibly indicating this information is harder to collect or less consistently tracked. `;
+      } else {
+        narrative += `What's particularly impressive is the dataset's completeness—with less than ${missingPercent}% missing information overall, it reflects meticulous data collection practices. `;
+      }
     } else {
-      narrative += `Remarkably, your dataset appears to be quite complete with minimal missing information, suggesting good data collection practices. `;
-    }
-
-    // Pattern insights
-    if (numericColumns.length >= 2) {
-      const col1 = numericColumns[0];
-      const col2 = numericColumns[1];
-      narrative += `The relationship between ${col1.name} and ${col2.name} could reveal interesting patterns worth exploring further in the detailed analysis tabs.`;
+      narrative += `This dataset exemplifies data quality excellence: every single field is complete across all records, indicating systematic and thorough data collection processes. `;
     }
 
     return narrative;
   }, [analysis]);
 
-  const getInsightSeverity = (insight: string): 'info' | 'warning' | 'success' => {
-    if (insight.includes('missing') || insight.includes('incomplete')) return 'warning';
-    if (insight.includes('complete') || insight.includes('remarkable')) return 'success';
-    return 'info';
-  };
-
-  const keyInsights = useMemo(() => {
+  const generateInsights = useMemo(() => {
     if (!analysis) return [];
 
     const insights = [];
-    const { totalRows, columnStats, numericColumns } = analysis;
+    const { totalRows, columnStats, numericColumns, textColumns } = analysis;
 
-    // Data size insight
-    if (totalRows > 10000) {
-      insights.push(`Large dataset with ${totalRows.toLocaleString()} records - excellent for statistical analysis`);
-    } else if (totalRows < 100) {
-      insights.push(`Compact dataset with ${totalRows} records - good for detailed examination`);
+    // Scale and scope insights
+    if (totalRows > 50000) {
+      insights.push(`Massive dataset scale: With ${totalRows.toLocaleString()} records, this dataset provides exceptional statistical power for trend analysis and pattern detection`);
+    } else if (totalRows > 10000) {
+      insights.push(`Robust dataset size: ${totalRows.toLocaleString()} records offer strong analytical confidence and reliable statistical insights`);
+    } else if (totalRows < 500) {
+      insights.push(`Focused dataset: ${totalRows} carefully curated records ideal for detailed examination and case-by-case analysis`);
     }
 
-    // Diversity insight
+    // Complexity insights
     const avgUnique = columnStats.reduce((sum, col) => sum + col.uniqueValues, 0) / columnStats.length;
-    if (avgUnique > totalRows * 0.8) {
-      insights.push('High data diversity - most fields contain unique or near-unique values');
-    } else if (avgUnique < totalRows * 0.1) {
-      insights.push('Categorical patterns - data shows strong grouping tendencies');
+    const uniquenessRatio = avgUnique / totalRows;
+    
+    if (uniquenessRatio > 0.8) {
+      insights.push('Exceptionally diverse data: Most fields contain unique values, suggesting rich individual-level detail and minimal redundancy');
+    } else if (uniquenessRatio < 0.1) {
+      insights.push('Pattern-rich structure: Strong categorical groupings indicate clear classification systems and repeating patterns');
+    } else {
+      insights.push('Balanced complexity: Mix of unique identifiers and categorical patterns provides both detail and structure');
     }
 
-    // Numeric range insight
+    // Numeric range insights with business context
     if (numericColumns.length > 0) {
-      const hasWideRanges = numericColumns.some(col => 
-        col.max != null && col.min != null && (col.max / Math.max(col.min, 1)) > 100
+      const extremeRanges = numericColumns.filter(col => 
+        col.max != null && col.min != null && (col.max / Math.max(col.min, 1)) > 1000
       );
-      if (hasWideRanges) {
-        insights.push('Wide value ranges detected - consider logarithmic scaling for visualizations');
+      
+      if (extremeRanges.length > 0) {
+        insights.push(`Extreme value ranges detected: Some measurements span several orders of magnitude, suggesting diverse scales that may benefit from logarithmic analysis`);
+      }
+
+      // Outlier detection insight
+      const potentialOutliers = numericColumns.filter(col => {
+        if (!col.mean || !col.median) return false;
+        return Math.abs(col.mean - col.median) > col.mean * 0.3;
+      });
+
+      if (potentialOutliers.length > 0) {
+        insights.push(`Asymmetric distributions identified: Several metrics show significant skewness, indicating the presence of influential outliers worth investigating`);
       }
     }
 
-    return insights;
+    // Data quality and completeness insights
+    const completionRate = ((columnStats.filter(col => col.nullCount === 0).length / columnStats.length) * 100);
+    if (completionRate === 100) {
+      insights.push('Perfect data integrity: Complete information across all fields demonstrates exceptional data quality standards');
+    } else if (completionRate > 90) {
+      insights.push(`High data quality: ${completionRate.toFixed(0)}% of fields are complete, indicating robust data collection processes`);
+    } else if (completionRate < 70) {
+      insights.push(`Selective data collection: ${completionRate.toFixed(0)}% field completion suggests optional or conditional data gathering`);
+    }
+
+    return insights.slice(0, 4); // Limit to most relevant insights
   }, [analysis]);
+
+  const getInsightSeverity = (insight: string): 'info' | 'warning' | 'success' => {
+    if (insight.includes('missing') || insight.includes('incomplete') || insight.includes('selective')) return 'warning';
+    if (insight.includes('perfect') || insight.includes('exceptional') || insight.includes('robust')) return 'success';
+    return 'info';
+  };
 
   if (!data || data.length === 0) {
     return (
@@ -185,7 +305,7 @@ export const DataSummary: React.FC<DataSummaryProps> = ({ data }) => {
 
   return (
     <div className="space-y-6">
-      {/* Main Narrative */}
+      {/* Enhanced Main Narrative */}
       <Card>
         <CardHeader>
           <div className="flex items-center space-x-2">
@@ -194,28 +314,28 @@ export const DataSummary: React.FC<DataSummaryProps> = ({ data }) => {
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-700 leading-relaxed text-lg">{generateNarrative}</p>
+          <p className="text-gray-700 leading-relaxed text-lg font-light">{generateNarrative}</p>
         </CardContent>
       </Card>
 
-      {/* Key Insights */}
+      {/* Enhanced Key Insights */}
       <Card>
         <CardHeader>
           <div className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5 text-green-600" />
-            <CardTitle>Key Insights</CardTitle>
+            <CardTitle>Strategic Insights</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {keyInsights.map((insight, index) => (
-              <div key={index} className="flex items-start space-x-3">
+          <div className="space-y-4">
+            {generateInsights.map((insight, index) => (
+              <div key={index} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
                 <div className="flex-shrink-0 mt-1">
-                  {getInsightSeverity(insight) === 'warning' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
-                  {getInsightSeverity(insight) === 'success' && <TrendingUp className="h-4 w-4 text-green-500" />}
+                  {getInsightSeverity(insight) === 'warning' && <AlertCircle className="h-4 w-4 text-amber-500" />}
+                  {getInsightSeverity(insight) === 'success' && <TrendingUp className="h-4 w-4 text-emerald-500" />}
                   {getInsightSeverity(insight) === 'info' && <BarChart3 className="h-4 w-4 text-blue-500" />}
                 </div>
-                <p className="text-gray-700">{insight}</p>
+                <p className="text-gray-700 font-medium">{insight}</p>
               </div>
             ))}
           </div>
