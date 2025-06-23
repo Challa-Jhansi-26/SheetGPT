@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,7 +39,7 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
     if (lowerQuery.includes('most common') || lowerQuery.includes('most frequent')) {
       for (const col of columns) {
         if (lowerQuery.includes(col.toLowerCase()) || lowerQuery.includes(col.toLowerCase().replace('_', ' '))) {
-          const counts = {};
+          const counts: Record<string, number> = {};
           data.forEach(row => {
             const value = row[col];
             if (value !== null && value !== undefined && value !== '') {
@@ -48,7 +47,7 @@ export const QueryInterface: React.FC<QueryInterfaceProps> = ({ data }) => {
             }
           });
           
-          const sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+          const sortedCounts = Object.entries(counts).sort((a, b) => Number(b[1]) - Number(a[1]));
           if (sortedCounts.length > 0) {
             const [mostCommon, count] = sortedCounts[0];
             return `The most common ${col.replace('_', ' ')} is "${mostCommon}", appearing ${count} times out of ${data.length} records.`;
