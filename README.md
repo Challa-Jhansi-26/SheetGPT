@@ -84,13 +84,6 @@ Your project should now be running at `http://localhost:8080` or another availab
 
 ---
 
-## 🛠 Customization
-
-- **Logo**: Replace the file at `public/favicon.ico` with your custom `.ico` logo.
-- **App Title & Metadata**: Edit `index.html` to personalize the title, description, and social image.
-
----
-
 ## 🌍 Deployment
 
 You can deploy this project on:
