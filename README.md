@@ -7,6 +7,10 @@
 This project leverages the power of React, TypeScript, Vite, and the OpenAI API to bridge the gap between raw spreadsheet data and actionable business insights.
 
 ---
+## 🌐 Live Demo
+Check out the live project here → [SheetGPT on Vercel](https://sheet-gpt-ashen.vercel.app)
+
+Transform your spreadsheets with AI — Upload Excel or CSV files and instantly get interactive dashboards, insights, and trend analysis — all without writing a single line of code.
 
 ## ✨ Key Features
 
