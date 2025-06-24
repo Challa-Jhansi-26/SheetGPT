@@ -106,9 +106,9 @@ Steps:
 Hi! I'm **Challa Jhansi**, a passionate software developer with a strong interest in building intuitive and intelligent web applications. I enjoy working with modern front-end stacks, experimenting with AI-driven tools, and solving real-world problems through code.
 This project, SheetGPT, reflects my interest in combining data, automation, and user-friendly interfaces to simplify complex workflows.
 
-📧 Email: jhansichalla26@gmail.com
-🔗 LinkedIn: linkedin.com/in/challajhansi
-💻 GitHub: github.com/Challa-Jhansi-26
+- 📧 Email: jhansichalla26@gmail.com
+- 🔗 LinkedIn: linkedin.com/in/challajhansi
+- 💻 GitHub: github.com/Challa-Jhansi-26
 
 
 
