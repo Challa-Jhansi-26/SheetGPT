@@ -72,11 +72,10 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Transform Your Spreadsheets with AI
+              Transform Your Spreadsheets with the Power of AI
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Upload Excel or CSV files and instantly get interactive dashboards, 
-              natural language insights, and trend analysis—all without writing any code.
+              SheetGPT empowers you to go beyond raw rows and columns. Simply upload your Excel or CSV file, and watch as your data is transformed into clear, interactive dashboards and insightful summaries — no coding, formulas, or charts to build manually.
             </p>
           </div>
 
