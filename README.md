@@ -119,6 +119,4 @@ This project, SheetGPT, reflects my interest in combining data, automation, and 
 This project is released under the MIT License.
 <<<<<<< HEAD
 
-[https://sheet-gpt-ashen.vercel.app]: https://sheet-gpt-ashen.vercel.app
-=======
->>>>>>> 96103f96dc9e54dd0485f419a5e4c7a08a6ddb79
+
