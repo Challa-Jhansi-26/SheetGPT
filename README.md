@@ -84,13 +84,6 @@ Your project should now be running at `http://localhost:8080` or another availab
 
 ---
 
-## 🛠 Customization
-
-- **Logo**: Replace the file at `public/favicon.ico` with your custom `.ico` logo.
-- **App Title & Metadata**: Edit `index.html` to personalize the title, description, and social image.
-
----
-
 ## 🌍 Deployment
 
 You can deploy this project on:
@@ -109,13 +102,23 @@ Steps:
 
 ## 🙋‍♀️ Author
 
-**Challa Jhansi**  
-Open to collaboration and learning opportunities!  
+
+Hi! I'm **Challa Jhansi**, a passionate software developer with a strong interest in building intuitive and intelligent web applications. I enjoy working with modern front-end stacks, experimenting with AI-driven tools, and solving real-world problems through code.
+This project, SheetGPT, reflects my interest in combining data, automation, and user-friendly interfaces to simplify complex workflows.
+
+- 📧 Email: jhansichalla26@gmail.com
+- 🔗 LinkedIn: linkedin.com/in/challajhansi
+- 💻 GitHub: github.com/Challa-Jhansi-26
+
+
 
 ---
 
 ## 📄 License
 
 This project is released under the MIT License.
+<<<<<<< HEAD
 
 [https://sheet-gpt-ashen.vercel.app]: https://sheet-gpt-ashen.vercel.app
+=======
+>>>>>>> 96103f96dc9e54dd0485f419a5e4c7a08a6ddb79
