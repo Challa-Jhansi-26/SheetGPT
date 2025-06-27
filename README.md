@@ -117,6 +117,5 @@ This project, SheetGPT, reflects my interest in combining data, automation, and 
 ## 📄 License
 
 This project is released under the MIT License.
-<<<<<<< HEAD
 
 
